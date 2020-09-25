@@ -54,7 +54,7 @@ class: inverse, left, middle
 ## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
 
 .center[
-```{r map_iptds, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE}
+```{r map_iptds, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE, fig.width = 7}
 library(tidyverse)
 library(leaflet)
 
@@ -90,29 +90,43 @@ class:  center
 
 .dfrm[Department of Fisheries Resources Management]
 
- [https://nezperce.org/government/fisheries-resources-management](https://nezperce.org/government/fisheries-resources-management/)
-
 Administration | Harvest | Conservation Enforcement <br/>
 Production | Watershed | Research
 
 .bold[Mission Statement]
 
 .left[The Nez Perce Tribe Department of Fisheries Resources Management will protect and restore aquatic resources and habitats. Our mission will be acccomplished consistent with the Nimiipuu way of life and beliefs, which have the utmost respect for the Creator, for all species, and for the past, present, and future generations to come. Our mission will be consistent with the reserved rights stated within the Nez Perce Tribe's 1855 Treaty.]
+---
+
+class:  center
+
+.dfrm[Department of Fisheries Resources Management]
+
+Administration | Harvest | Conservation Enforcement <br/>
+Production | Watershed | Research
 
 <img src = "figures/Picture1.png" width = "75%"/>
-
 
 ---
 
 ## My Experience and Background
 
+* Seasonal Bio-Aid - 1998 - 2001
+  * B.S. Wildlife Sciences - 2001
+* Field Technician - 2001-2003
+* Field Biologist - 2003-2010
+  * Started Master's Program
+* Project Leader - 2010-2014
+* Research Scientist - 2014-present
+
+
+<img src = "figures/P7100027.JPG" width = "75%"/>
 ---
 
 ## Tools Used
 
-R and R Studio
 MS SQL Server
-
+R and R Studio
 
 ---
 
@@ -122,17 +136,17 @@ PITPH
 ---
 
 ## Example 3
-STADEM
+STADEM and DABOM
 
----
 
-## Example 4
-DABOM
 
 ---
 
 ## Example 5
 CAX
+
+## Example 6
+Forecasting
 
 
 
