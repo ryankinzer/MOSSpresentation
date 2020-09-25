@@ -1,0 +1,138 @@
+---
+title: "Data Science in Snake River Fisheries Management"
+#subtitle: "a presentation for MOSS"
+author: "Ryan N. Kinzer"
+institute: "Nez Perce Tribe <br/> Department of Fisheries Resources Management <br/> Research Division"
+date: "5th October 2020"
+output:
+  xaringan::moon_reader:
+    seal: true
+    nature:
+      titleSlideClass: ["left", "middle", "inverse"]
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+    css: [default, default-fonts, css/my-theme.css]
+---
+class: inverse, left, top
+background-image: url("figures/Picture1.jpg")
+
+.pull.right[
+## Outline
+
+
+.outline[
+Catchy Hook <br/>
+DFRM Responsibilities <br/>
+My Experience and Background <br/>
+Tools Used <br/>
+Fishy Examples <br/>
+]
+]
+<!--<img src="figures/fish.png" width= "75%"/> -->
+<!-- .large[Ryan N. Kinzer | Smolt Monitoring Workshop | 6th November 2019] -->
+
+---
+class: inverse, left, middle
+## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
+
+.bold[Problem Statement:] After migrating anadromous fish past Lower Granite Dam, the ability to update and make in-season adjustments to tribal and sport-fishing harvest rates, or weir management ceased.
+
+.bold[Fix:] Need a way to track fish reaching terminal spawning areas and hatchery weirs.
+
+.center[<img src = "figures/PITtrackR.png" width = "75%"/>]
+
+---
+class: inverse, left, middle
+## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
+
+<img src = "figures/Picture2.png" width = "75%"/>
+
+
+---
+class: inverse, left, middle
+## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
+
+.center[
+```{r map_iptds, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(leaflet)
+
+# load points and rivers
+load("../../DFRM Projects/River_Mapping/data/points/site_config.rda")
+load("../../DFRM Projects/River_Mapping/data/flowlines/large_rivers.rda")
+#load("../../DFRM Projects/River_Mapping/data/flowlines/SR_streams.rda")
+snake_rivers <- sf::st_transform(snake_rivers, crs = 4326)
+
+sites <- configuration %>%
+    filter(!is.na(Longitude)) %>%
+    select(SiteID, StartDate, SiteName, SiteDescription, SiteTypeName,
+         Latitude, Longitude) %>%
+  distinct() %>%
+  filter(grepl("Instream", SiteTypeName)) %>%
+  
+  sf::st_as_sf(coords = c('Longitude','Latitude'),
+           crs = 4326)
+
+leaflet() %>%
+  #addTiles() %>%
+  setView(lng = -115.5660,
+          lat = 44.9218,
+          zoom = 9) %>%
+  addProviderTiles(providers$Esri.WorldTopoMap) %>%
+  addPolylines(data = snake_rivers, color = 'cyan') %>%
+  addCircleMarkers(data = sites)
+```
+]
+---
+
+class:  center
+
+.dfrm[Department of Fisheries Resources Management]
+
+ [https://nezperce.org/government/fisheries-resources-management](https://nezperce.org/government/fisheries-resources-management/)
+
+Administration | Harvest | Conservation Enforcement <br/>
+Production | Watershed | Research
+
+.bold[Mission Statement]
+
+.left[The Nez Perce Tribe Department of Fisheries Resources Management will protect and restore aquatic resources and habitats. Our mission will be acccomplished consistent with the Nimiipuu way of life and beliefs, which have the utmost respect for the Creator, for all species, and for the past, present, and future generations to come. Our mission will be consistent with the reserved rights stated within the Nez Perce Tribe's 1855 Treaty.]
+
+<img src = "figures/Picture1.png" width = "75%"/>
+
+
+---
+
+## My Experience and Background
+
+---
+
+## Tools Used
+
+R and R Studio
+MS SQL Server
+
+
+---
+
+## Example 2 - [PITPH](https://nptfisheries.shinyapps.io/pitph2/)
+PITPH
+
+---
+
+## Example 3
+STADEM
+
+---
+
+## Example 4
+DABOM
+
+---
+
+## Example 5
+CAX
+
+
+
