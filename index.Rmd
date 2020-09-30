@@ -405,7 +405,7 @@ Steelhead - South Fork Salmon River
 
 .center[
 <a href="https://nptfisheries.shinyapps.io/pitph2/">
-<img src = "figures/pitph.png" width="75%"/>
+<img src = "figures/pitph.png" width="100%"/>
 </a>
 ]
 
