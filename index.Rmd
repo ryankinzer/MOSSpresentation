@@ -6,147 +6,421 @@ institute: "Nez Perce Tribe <br/> Department of Fisheries Resources Management <
 date: "5th October 2020"
 output:
   xaringan::moon_reader:
+    css: [default, default-fonts, "ninjutsu", "css/my-theme.css"]
     seal: true
     nature:
-      titleSlideClass: ["left", "middle", "inverse"]
+      titleSlideClass: ["left", "middle"]
       highlightStyle: github
       highlightLines: true
       countIncrementalSlides: false
-    css: [default, default-fonts, css/my-theme.css]
+   # css: [default, default-fonts, css/my-theme.css]
 ---
+
+```{r map_iptds, eval = FALSE, echo = FALSE, warning=FALSE, message=FALSE, fig.width = 7}
+library(tidyverse)
+library(leaflet)
+library(htmlwidgets)
+library(htmltools)
+
+library(cdmsR)
+cdmsLogin('apikey', 'apikey')
+cdms_sites <- get
+
+# load points, rivers and polygons
+load("../../DFRM Projects/River_Mapping/data/points/site_config.rda")
+load("../../DFRM Projects/River_Mapping/data/points/cdms_locations.rda")
+load("../../DFRM Projects/River_Mapping/data/flowlines/large_rivers.rda")
+load("../../DFRM Projects/River_Mapping/data/polygons/SR_pops.rda")
+load("../../DFRM Projects/River_Mapping/data/polygons/npt_boundaries.rda")
+
+#load("../../DFRM Projects/River_Mapping/data/flowlines/SR_streams.rda")
+snake_rivers <- sf::st_transform(snake_rivers, crs = 4326)
+pnw_rivers <- sf::st_transform(pnw_rivers, crs = 4326)
+
+# NPT areas
+
+l <- leaflet() %>%
+  #addTiles() %>%
+  setView(lng = -115.5660,
+          lat = 45.4000,#44.9218,
+          zoom = 7) %>%
+  addProviderTiles(providers$Esri.WorldTopoMap)%>%
+  addPolylines(data = pnw_rivers, color = 'blue', weight = 1) %>%
+  addPolylines(data = snake_rivers, color = 'blue', weight = 1)
+
+co_type <- colorFactor('Paired', locs$LocationType)
+
+npt_locs <- l %>%
+  addPolygons(data = sth_pop,
+              stroke = FALSE,
+              color = 'grey',
+              fillColor = 'grey',
+              fillOpacity = .5,
+              group = 'Snake Basin') %>%
+  addPolygons(data = icc,
+              stroke = TRUE,
+              color = 'black',
+              fill = NA,
+              group = 'Indian Claims Commission') %>%
+  addPolygons(data = npt1863,
+              stroke = TRUE,
+              color = 'blue',
+              fill = NA,
+              group = 'Treaty 1863') %>%
+  addCircles(lat = locs$Latitude, lng = locs$Longitude, color = co_type(locs$LocationType), radius = 100,
+           popup = paste("<b>Location Label:</b>", locs$Label, "<br>"),
+           popupOptions = popupOptions(noHide = T, textsize = "15px"),
+           highlightOptions = highlightOptions(color = "white",
+                                               weight = 5, bringToFront = F, opacity = 1)) %>%
+  #addControl(st_title, position = 'topleft', className = "map-title") %>%
+  addLegend(position = 'bottomleft',
+            title = 'Monitoring Locations', pal = co_type,
+            values = unique(locs$LocationType)) %>%
+  addLegend(position = "bottomleft",
+            title = 'Boundaries', colors = c('grey', 'black', 'blue'),
+            labels = c("Snake Basin", "Indian Claims Commission", "Treaty 1863"),
+            group = c("Snake Basin", "Indian Claims Commission", "Treaty 1863"),
+            opacity = 1) %>%
+
+  addLayersControl(
+    overlayGroups = c("Snake Basin", "ICC Boundary", "Treaty 1863"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+path <- file.path(getwd(), "figures", "npt_locations.html")
+saveWidget(npt_locs, file = path)
+
+# sth pops and pit locatons
+sites <- configuration %>%
+    filter(!is.na(Longitude)) %>%
+    select(SiteID, SiteName, SiteDescription, SiteTypeName,
+         Latitude, Longitude) %>%
+  mutate(type = case_when(
+    grepl('Instream Remote', SiteTypeName) ~ 'In-stream Array',
+    grepl('Weir|Hatchery', SiteName) ~ 'Weir Scanning',
+    grepl('Adult Fishway', SiteTypeName) ~ 'Ladder Observation',
+    SiteTypeName == 'Dam' ~ 'Dam')
+    ) %>%
+  distinct() %>%
+  #filter(grepl("Instream", SiteTypeName)) %>%
+  sf::st_as_sf(coords = c('Longitude','Latitude'),
+           crs = 4326)
+
+st_copop <- colorFactor(palette = 'viridis', domain = sth_pop$POP_NAME)
+
+array <- filter(sites, type == 'In-stream Array')
+weirs <- filter(sites, type == 'Weir Scanning')
+ladder <- filter(sites, type == 'Ladder Observation')
+dam <- filter(sites, type == 'Dam')
+
+tmp_config <- filter(sites, !is.na(type))
+
+pal <- colorFactor(
+  palette = topo.colors(9)[1:3],
+  #reverse = TRUE,
+  domain = tmp_config$type
+)
+
+#tmp_config <- filter(sites, grepl("Dam", SiteTypeName))
+
+tag.map.title <- tags$style(HTML("
+  .leaflet-control.map-title { 
+    transform: translate(-50%,20%);
+    position: fixed !important;
+    left: 50%;
+    text-align: center;
+    padding-left: 10px; 
+    padding-right: 10px; 
+    background: rgba(255,255,255,0.75);
+    font-weight: bold;
+    font-size: 16px;
+  }
+"))
+
+st_title <- tags$div(
+  tag.map.title, HTML("Snake Basin Steelhead Populations")
+)
+
+pit_locs <- l %>%
+  addPolygons(data = sth_pop,
+              popup = ~as.character(POP_NAME),
+              label = ~TRT_POPID,
+              layerId = sth_pop$POP_NAME,
+              group = 'Populations',
+              stroke = TRUE, color = 'black',
+              fillColor = ~st_copop(POP_NAME), weight = 1, fillOpacity = .5) %>%
+  addCircleMarkers(data = array, radius = 5,
+                   group = 'In-Stream Arrays',
+                   popup = paste("<b>Site ID:</b>", array$SiteID),
+                   color = ~pal(array$type),
+                  #clusterOptions = markerClusterOptions(),
+                  popupOptions = popupOptions(noHide = T)) %>%
+  addCircleMarkers(data = weirs, radius = 5,
+                   group = 'Weir Scanning',
+                   popup = paste("<b>Site ID:</b>", weirs$SiteID),
+                   color = ~pal(weirs$type),
+                  #clusterOptions = markerClusterOptions(),
+                  popupOptions = popupOptions(noHide = T)) %>%
+  addCircleMarkers(data = ladder, radius = 5,
+                   group = 'Ladder Observation',
+                   popup = paste("<b>Site ID:</b>", ladder$SiteID),
+                   color = ~pal(ladder$type),
+                  #clusterOptions = markerClusterOptions(),
+                  popupOptions = popupOptions(noHide = T)) %>%
+  addCircleMarkers(data = dam, radius = 5,
+                   group = 'Dam',
+                   popup = paste("<b>Site ID:</b>", dam$SiteID),
+                   color = ~pal(dam$type),
+                  #clusterOptions = markerClusterOptions(),
+                  popupOptions = popupOptions(noHide = T)) %>%
+  #addControl(st_title, position = 'topleft', className = "map-title") %>%
+  addLegend(data = tmp_config, position = "bottomleft", pal = pal, values = ~type,
+          title = "Observation Type",
+          #labFormat = labelFormat(prefix = "$"),
+          opacity = 1) %>%
+  addLayersControl(
+    overlayGroups = c("Populations", "In-Stream Arrays", "Ladder Observations", "Weir Scanning", "Dam"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+path <- file.path(getwd(), "figures", "pit_locations.html")
+saveWidget(pit_locs, file = path)
+```
+
+
+
 class: inverse, left, top
 background-image: url("figures/Picture1.jpg")
+background-position: bottom 15px left 20px
+background-size: 65%
 
 .pull.right[
 ## Outline
 
-
 .outline[
-Catchy Hook <br/>
 DFRM Responsibilities <br/>
-My Experience and Background <br/>
-Tools Used <br/>
+Set the Stage  <br/>
 Fishy Examples <br/>
+  ]
 ]
+
+--
+<br/>
+.pull.right[
+<img src="figures/fish.png" width= "75%"/>
 ]
 <!--<img src="figures/fish.png" width= "75%"/> -->
 <!-- .large[Ryan N. Kinzer | Smolt Monitoring Workshop | 6th November 2019] -->
 
 ---
-class: inverse, left, middle
-## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
-
-.bold[Problem Statement:] After migrating anadromous fish past Lower Granite Dam, the ability to update and make in-season adjustments to tribal and sport-fishing harvest rates, or weir management ceased.
-
-.bold[Fix:] Need a way to track fish reaching terminal spawning areas and hatchery weirs.
-
-.center[<img src = "figures/PITtrackR.png" width = "75%"/>]
-
----
-class: inverse, left, middle
-## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
-
-<img src = "figures/Picture2.png" width = "75%"/>
-
-
----
-class: inverse, left, middle
-## Catchy Hook - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
-
-.center[
-```{r map_iptds, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE, fig.width = 7}
-library(tidyverse)
-library(leaflet)
-
-# load points and rivers
-load("../../DFRM Projects/River_Mapping/data/points/site_config.rda")
-load("../../DFRM Projects/River_Mapping/data/flowlines/large_rivers.rda")
-#load("../../DFRM Projects/River_Mapping/data/flowlines/SR_streams.rda")
-snake_rivers <- sf::st_transform(snake_rivers, crs = 4326)
-
-sites <- configuration %>%
-    filter(!is.na(Longitude)) %>%
-    select(SiteID, StartDate, SiteName, SiteDescription, SiteTypeName,
-         Latitude, Longitude) %>%
-  distinct() %>%
-  filter(grepl("Instream", SiteTypeName)) %>%
-  
-  sf::st_as_sf(coords = c('Longitude','Latitude'),
-           crs = 4326)
-
-leaflet() %>%
-  #addTiles() %>%
-  setView(lng = -115.5660,
-          lat = 44.9218,
-          zoom = 9) %>%
-  addProviderTiles(providers$Esri.WorldTopoMap) %>%
-  addPolylines(data = snake_rivers, color = 'cyan') %>%
-  addCircleMarkers(data = sites)
-```
-]
----
 
 class:  center
+background-image: url("figures/NPT.png"), url("figures/DFRM.png")
+background-position: top 15px left 20px, top 15px right 20px
+background-size: 100px, 100px
 
 .dfrm[Department of Fisheries Resources Management]
 
 Administration | Harvest | Conservation Enforcement <br/>
 Production | Watershed | Research
+
+<hr/>
 
 .bold[Mission Statement]
 
 .left[The Nez Perce Tribe Department of Fisheries Resources Management will protect and restore aquatic resources and habitats. Our mission will be acccomplished consistent with the Nimiipuu way of life and beliefs, which have the utmost respect for the Creator, for all species, and for the past, present, and future generations to come. Our mission will be consistent with the reserved rights stated within the Nez Perce Tribe's 1855 Treaty.]
----
 
-class:  center
-
-.dfrm[Department of Fisheries Resources Management]
-
-Administration | Harvest | Conservation Enforcement <br/>
-Production | Watershed | Research
-
-<img src = "figures/Picture1.png" width = "75%"/>
+--
+<br/>
+.mission[Restore the landscape, and leave it better than before for our children.]
 
 ---
+class:  mainslide, left, top
 
-## My Experience and Background
+## Research Division
 
-* Seasonal Bio-Aid - 1998 - 2001
-  * B.S. Wildlife Sciences - 2001
-* Field Technician - 2001-2003
-* Field Biologist - 2003-2010
-  * Started Master's Program
-* Project Leader - 2010-2014
-* Research Scientist - 2014-present
-
-
-<img src = "figures/P7100027.JPG" width = "75%"/>
----
-
-## Tools Used
-
-MS SQL Server
-R and R Studio
+<iframe  title="My Map" width="1500" height="500" src="figures/npt_locations.html" frameborder="0" allowfullscreen></iframe>
 
 ---
+background-image: url("figures/ptagis.png")
+background-position: top 15px right 40px
+background-size: 150px, 150px
 
-## Example 2 - [PITPH](https://nptfisheries.shinyapps.io/pitph2/)
-PITPH
+## Set the stage...
+<div class="row">
+  <div class="column">
+    <img src = "figures/pit_tags.jpg" width="80%"/>
+    <img src = "figures/IR3.png" width="100%"/>
+
+  </div>
+  <div class="column">
+    <img src = "figures/tagging.jpg" width="100%"/>
+    <img src = "figures/lowergranite.jpg" width="100%"/>
+  </div>
+</div>
+
+---
+background-image: url("figures/ptagis.png")
+background-position: top 15px right 40px
+background-size: 150px, 150px
+
+## Set the stage...
+<div class="row">
+  <div class="column">
+    <img src = "figures/ladder.png" width="100%"/>
+  </div>
+  <div class="column">
+    <img src = "figures/array.jpg" width="100%"/>
+    <img src = "figures/joseph.png" width="100%"/>
+  </div>
+</div>
+
+---
+class: mainslide, left, top
+layout: true
 
 ---
 
-## Example 3
-STADEM and DABOM
+## PIT-tag Uses
 
-
+* Abundance: Lincoln-Peterson
+$$\hat{N} = \frac{M*C}{R}$$
+* Survival: Cormack Jolly Seber
+$$z_{i,t+1}|z_{i,t} \sim Bernoulli(z_{i,t} \phi_{i,t})$$
+$$y_{i,t}|z_{i,t} \sim Bernoulli(z_{i,t} \rho_{i,t})$$
+* In-season Management: Tag-expansions
+$$\hat{N} = \frac{n_a}{(\frac{n_j}{N_j})}$$
+* Juvenile and Adult Arrival and Travel Times
 
 ---
 
-## Example 5
-CAX
+## PIT-tag Observations
 
-## Example 6
-Forecasting
+<iframe  title="My Map" width="1500" height="500" src="figures/pit_locations.html" frameborder="0" allowfullscreen></iframe>
 
+---
 
+## Management Example 1 - [PITtrackR](https://nptfisheries.shinyapps.io/PITtrackR/)
 
+.bold[Need:] Real-time in-season harvest management.
+
+.bold[Problem:] After fish past Lower Granite Dam we lose the ability to make in-season adjustments to tribal and sport-fishing harvest rates.
+
+.bold[Fix:] Track fish reaching terminal spawning areas and hatchery weirs with PIT-tags.
+
+.center[
+<a href="https://nptfisheries.shinyapps.io/PITtrackR/">
+<img src = "figures/PITtrackR.png" width = "75%"/>
+</a>
+]
+
+---
+
+## Management Example 2 - Pop. Abundance
+
+.bold[Need:] Natural-origin spring/summer Chinook and steelhead abundance for ESA status assessments. 
+
+.bold[Problem:] Current methods are too expensive, impossible, or not accurate/precise enough in all locations.
+
+.bold[Fix:] In-stream PIT-tag arrays, STADEM and DABOM
+
+.pull-left[
+<img src = "figures/methods.png" width="100%"/>
+]
+
+.pull-right[
+<img src = "figures/joseph.png" width="100%"/>
+]
+
+---
+layout: false
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model1.png" width = "100%"/>
+---
+
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model2.png" width = "100%"/>
+---
+
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model3.png" width = "100%"/>
+---
+
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model4.png" width = "100%"/>
+---
+
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model5.png" width = "100%"/>
+---
+
+## Management Example 2 - Pop. Abundance
+<img src = "figures/model6.png" width = "100%"/>
+
+---
+class: mainslide, left, top
+layout: true
+---
+
+## Management Example 2 - STADEM
+State-space Adult Dam Escapement Model - $\hat{N}$
+
+<img src = "figures/stadem.png" width="100%"/>
+
+---
+## Management Example 2 - DABOM
+Dam Adult Branch Occupancy Model - Transition Probabilities
+
+<img src = "figures/transition_probs.png" width="100%"/>
+
+---
+## Management Example 2 - DABOM
+Steelhead - Population Abundance
+
+<img src = "figures/dabom.png" width="100%"/>
+
+---
+## Management Example 2 - DABOM
+Steelhead - South Fork Salmon River
+
+.center[
+<img src = "figures/sfsr_dabom.png" width="50%"/>
+]
+
+---
+
+## Management Example 3 - [PITPH](https://nptfisheries.shinyapps.io/pitph2/)
+
+.bold[Need:] Lower power house encounters to improve smolt-to-adult return rates. 
+
+.bold[Problem Statement:] Regulatory and fish management folks had different views of the interaction between dam operations and fish survival.
+
+.bold[Fix:] Developed interactive application to communicate the issue, balance desired outcomes and find compromises.
+
+.bold[Outcome:] Spill operations agreement signed by 3 state governors.
+
+---
+
+## Management Example 3 - [PITPH](https://nptfisheries.shinyapps.io/pitph2/)
+
+.center[
+<a href="https://nptfisheries.shinyapps.io/pitph2/">
+<img src = "figures/pitph.png" width="75%"/>
+</a>
+]
+
+???
+.bold[Learned:]
+* Find a metric that is important to both parties.
+
+.bold[Balance Outcomes:]
+
+.bold[Compromise:] Signed spill operations agreement
+
+fish abundance - they are not responsible for reso
+
+tangible fish response  - professional biologist opinion
+
+---
+
+## Conclusions
