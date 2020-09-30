@@ -422,5 +422,5 @@ fish abundance - they are not responsible for reso
 tangible fish response  - professional biologist opinion
 
 ---
-
-## Conclusions
+class: center, middle
+## Thank you for listening.
